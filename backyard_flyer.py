@@ -41,7 +41,10 @@ class BackyardFlyer(Drone):
 
         This triggers when `MsgID.LOCAL_POSITION` is received and self.local_position contains new data
         """
-        pass
+        if self.flight_state == States.TAKEOFF:
+            altitude = -1.0 * self.local_position[2]
+            if altitude > 0.95 * self.target_position[2]:
+                self.landing_transition()
 
     def velocity_callback(self):
         """
@@ -49,7 +52,9 @@ class BackyardFlyer(Drone):
 
         This triggers when `MsgID.LOCAL_VELOCITY` is received and self.local_velocity contains new data
         """
-        pass
+        if self.flight_state == States.LANDING:
+            if ((self.global_position[2] - self.global_home[2]<0.1) and abs(self.global_position[2]<0.01)):
+                self.disarming_transition()
 
     def state_callback(self):
         """
@@ -57,7 +62,14 @@ class BackyardFlyer(Drone):
 
         This triggers when `MsgID.STATE` is received and self.armed and self.guided contain new data
         """
-        pass
+        if not self.in_mission:
+            return
+        if self.flight_state == Phases.MANUAL:
+            self.arming_transition()
+        elif self.flight_state == Phases.ARMING:
+            self.takeoff_transition()
+        elif self.flight_state == Phases.DISARMING:
+            self.manual_transition()
 
     def calculate_box(self):
         """TODO: Fill out this method
@@ -75,6 +87,13 @@ class BackyardFlyer(Drone):
         4. Transition to the ARMING state
         """
         print("arming transition")
+        self.take_control()
+        self.arm()
+        self.set_home_position(self.global_position[0],
+            self.global_position[1],
+            self.global_position[2])
+        self.flight_state = Phases.ARMING
+
 
     def takeoff_transition(self):
         """TODO: Fill out this method
@@ -84,6 +103,10 @@ class BackyardFlyer(Drone):
         3. Transition to the TAKEOFF state
         """
         print("takeoff transition")
+        target_altitude = 3.0
+        self.target_position[2] = target_altitude
+        self.takeoff(target_altitude)
+        self.flight_state = Phases.TAKEOFF
 
     def waypoint_transition(self):
         """TODO: Fill out this method
